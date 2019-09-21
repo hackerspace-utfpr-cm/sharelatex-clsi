@@ -1,3 +1,6 @@
+Metrics = require "metrics-sharelatex"
+Metrics.initialize("clsi")
+
 CompileController = require "./app/js/CompileController"
 Settings = require "settings-sharelatex"
 logger = require "logger-sharelatex"
@@ -12,8 +15,7 @@ Errors = require './app/js/Errors'
 Path = require "path"
 fs = require "fs"
 
-Metrics = require "metrics-sharelatex"
-Metrics.initialize("clsi")
+
 Metrics.open_sockets.monitor(logger)
 Metrics.memory.monitor(logger)
 
@@ -26,12 +28,13 @@ express = require "express"
 bodyParser = require "body-parser"
 app = express()
 
+Metrics.injectMetricsRoute(app)
 app.use Metrics.http.monitor(logger)
 
 # Compile requests can take longer than the default two
 # minutes (including file download time), so bump up the 
 # timeout a bit.
-TIMEOUT = 6 * 60 * 1000
+TIMEOUT = 10 * 60 * 1000
 app.use (req, res, next) ->
 	req.setTimeout TIMEOUT
 	res.setTimeout TIMEOUT
@@ -57,7 +60,7 @@ app.param 'build_id', (req, res, next, build_id) ->
 		next new Error("invalid build id #{build_id}")
 
 
-app.post   "/project/:project_id/compile", bodyParser.json(limit: "5mb"), CompileController.compile
+app.post   "/project/:project_id/compile", bodyParser.json(limit: Settings.compileSizeLimit), CompileController.compile
 app.post   "/project/:project_id/compile/stop", CompileController.stopCompile
 app.delete "/project/:project_id", CompileController.clearCache
 
@@ -67,7 +70,7 @@ app.get  "/project/:project_id/wordcount", CompileController.wordcount
 app.get  "/project/:project_id/status", CompileController.status
 
 # Per-user containers
-app.post   "/project/:project_id/user/:user_id/compile", bodyParser.json(limit: "5mb"), CompileController.compile
+app.post   "/project/:project_id/user/:user_id/compile", bodyParser.json(limit: Settings.compileSizeLimit), CompileController.compile
 app.post   "/project/:project_id/user/:user_id/compile/stop", CompileController.stopCompile
 app.delete "/project/:project_id/user/:user_id", CompileController.clearCache
 
@@ -143,7 +146,7 @@ app.get "/health_check", (req, res)->
 app.get "/smoke_test_force", (req, res)->
 	smokeTest.run(require.resolve(__dirname + "/test/smoke/js/SmokeTests.js"))(req, res)
 
-profiler = require "v8-profiler"
+profiler = require "v8-profiler-node8"
 app.get "/profile", (req, res) ->
 	time = parseInt(req.query.time || "1000")
 	profiler.startProfiling("test")

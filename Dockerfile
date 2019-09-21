@@ -1,4 +1,4 @@
-FROM node:6.14.1 as app
+FROM node:10.15.0 as app
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY . /app
 
 RUN npm run compile:all
 
-FROM node:6.14.1
+FROM node:10.15.0
 
 COPY --from=app /app /app
 
@@ -20,4 +20,4 @@ WORKDIR /app
 RUN chmod 0755 ./install_deps.sh && ./install_deps.sh
 ENTRYPOINT ["/bin/sh", "entrypoint.sh"]
 
-CMD ["node","app.js"]
+CMD ["node", "--expose-gc", "app.js"]
